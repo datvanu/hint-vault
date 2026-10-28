@@ -1,0 +1,5 @@
+body { margin: 0; padding: 28px; background: #101722; color: #eef6ff; font: 16px system-ui, sans-serif; }
+main { max-width: 1000px; margin: auto; }
+button { margin: 5px; padding: 12px 18px; border: 0; border-radius: 8px; background: #2679a8; color: white; cursor: pointer; }
+.meter, pre { margin-top: 20px; padding: 18px; border: 1px solid #42718e; border-radius: 10px; background: #0b1420; }
+pre { overflow: auto; white-space: pre-wrap; }

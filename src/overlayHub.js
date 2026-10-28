@@ -33,4 +33,11 @@ export class OverlayHub {
     const data = JSON.stringify(state);
     for (const client of this.clients) client.send(data);
   }
+
+  close() {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.pending = null;
+    this.clients.clear();
+  }
 }

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hint Vault Admin</title>
+    <link rel="stylesheet" href="/assets/admin.css">
+  </head>
+  <body>
+    <main>
+      <h1>Hint Vault · Admin</h1>
+      <p>Demo controls, current groups, and cost meter.</p>
+      <nav>
+        <button data-command="!stuck">!stuck</button>
+        <button data-command="!more">!more</button>
+        <button data-command="!solved">!solved</button>
+        <button id="purge">Purge now</button>
+      </nav>
+      <section class="meter" id="meter">Waiting for vault state…</section>
+      <pre id="state" aria-live="polite"></pre>
+    </main>
+    <script type="module" src="/assets/admin.js"></script>
+  </body>
+</html>

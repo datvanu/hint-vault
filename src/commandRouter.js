@@ -16,6 +16,7 @@ export class CommandRouter {
   constructor({ store, limiter, hub, blocklist = [], onReply = () => {} }) {
     Object.assign(this, { store, limiter, hub, blocklist, onReply });
     this.moreConfirmAt = 0;
+    this.timers = new Set();
   }
 
   isPrivileged(message) {
@@ -62,7 +63,12 @@ export class CommandRouter {
     if (command.command === 'stuck') {
       this.store.release(0);
       this.hub.broadcast({ ...this.store.state(), mode: 'opening', released: [] });
-      setTimeout(() => this.publish(), 1500).unref?.();
+      const timer = setTimeout(() => {
+        this.timers.delete(timer);
+        this.publish();
+      }, 1500);
+      timer.unref?.();
+      this.timers.add(timer);
     } else if (command.command === 'more') {
       const now = Date.now();
       if (this.store.puzzle.maxReleasedLevel === 2 && now - this.moreConfirmAt > 10_000) {
@@ -115,6 +121,11 @@ export class CommandRouter {
   streamOffline() {
     this.store.reset();
     this.publish();
+  }
+
+  close() {
+    for (const timer of this.timers) clearTimeout(timer);
+    this.timers.clear();
   }
 
   publish() { this.hub.broadcast(this.store.state()); }

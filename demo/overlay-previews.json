@@ -1,0 +1,42 @@
+{
+  "sealed": {
+    "mode": "sealed",
+    "puzzle": { "id": "preview-1", "name": "Lever Hall" },
+    "counts": { "hints": 8, "groups": 5, "viewers": 7 },
+    "released": [],
+    "helpedBoard": [],
+    "costMeter": { "usdSpent": 0, "usdCap": 1, "warning": false, "aiPaused": false }
+  },
+  "opening": {
+    "mode": "opening",
+    "puzzle": { "id": "preview-1", "name": "Lever Hall" },
+    "counts": { "hints": 8, "groups": 5, "viewers": 7 },
+    "released": [],
+    "helpedBoard": [],
+    "costMeter": { "usdSpent": 0, "usdCap": 1, "warning": false, "aiPaused": false }
+  },
+  "open": {
+    "mode": "open",
+    "puzzle": { "id": "preview-1", "name": "Lever Hall" },
+    "counts": { "hints": 8, "groups": 5, "viewers": 7 },
+    "released": [
+      { "groupId": "preview-g1", "level": 0, "text": "Look around the room again; something is colorful.", "rank": 3 },
+      { "groupId": "preview-g2", "level": 0, "text": "Check the faded poster.", "rank": 2 },
+      { "groupId": "preview-g3", "level": 1, "text": "The levers matter.", "rank": 2 }
+    ],
+    "helpedBoard": [],
+    "costMeter": { "usdSpent": 0, "usdCap": 1, "warning": false, "aiPaused": false }
+  },
+  "solved": {
+    "mode": "solved",
+    "puzzle": { "id": "preview-1", "name": "Lever Hall" },
+    "counts": { "hints": 8, "groups": 5, "viewers": 7 },
+    "released": [],
+    "helpedBoard": [
+      { "displayName": "pixel_pia", "helps": 2 },
+      { "displayName": "lever_larry", "helps": 1 },
+      { "displayName": "switch_sam", "helps": 1 }
+    ],
+    "costMeter": { "usdSpent": 0, "usdCap": 1, "warning": false, "aiPaused": false }
+  }
+}

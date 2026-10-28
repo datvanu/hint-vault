@@ -1,0 +1,51 @@
+* { box-sizing: border-box; }
+
+html,
+body {
+  width: 1920px;
+  height: 1080px;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  color: #f4f7ff;
+  font: 28px system-ui, sans-serif;
+}
+
+.vault {
+  position: absolute;
+  top: 20%;
+  left: 35%;
+  display: grid;
+  width: 30%;
+  height: 55%;
+  place-content: center;
+  border: 8px solid #79cfff;
+  border-radius: 48%;
+  background: radial-gradient(ellipse, #13263eea, #06101be8);
+  box-shadow: 0 0 70px #239cff66;
+  text-align: center;
+}
+
+.vault.mode-opening { animation: vault-opening 1.5s ease-in-out both; }
+@keyframes vault-opening {
+  0% { transform: scale(1); box-shadow: 0 0 70px #239cff66; }
+  60% { transform: scale(1.025); box-shadow: 0 0 110px #59dfffaa; }
+  100% { transform: scale(1.01); box-shadow: 0 0 90px #239cff88; }
+}
+
+.widget,
+.board {
+  position: absolute;
+  padding: 16px 24px;
+  border: 2px solid #78d2ff;
+  border-radius: 18px;
+  background: #081522dd;
+}
+
+.widget { top: 24px; right: 30px; }
+.cards { position: absolute; top: 20%; right: 2%; width: 32%; }
+.card { margin: 12px; padding: 18px; border-left: 8px solid #8ceaff; border-radius: 12px; background: #101d2def; }
+.card.level-3 { border-color: #ff8c91; }
+.board { bottom: 24px; left: 25px; border: 0; background: #071321df; }
+.preview-banner { position: absolute; z-index: 10; top: 18px; left: 18px; padding: 10px 16px; border: 2px solid #ffda72; border-radius: 9px; background: #302507ed; color: #ffe7a0; font-size: 20px; font-weight: 700; letter-spacing: .08em; }
+h1 { font-size: 50px; }

@@ -2,15 +2,19 @@ import { spoilerFilter } from './spoilerFilter.js';
 
 const synonyms = {
   switch: 'lever', picture: 'poster', image: 'poster', pull: 'pull', try: 'pull',
-  push: 'pull', crimson: 'red', scarlet: 'red',
+  push: 'pull', use: 'pull', move: 'pull', turn: 'pull', down: 'pull',
+  handle: 'lever', crimson: 'red', scarlet: 'red',
 };
+const stopWords = new Set(['a', 'an', 'and', 'at', 'is', 'it', 'of', 'on', 'the', 'to', 'one']);
 const stem = word => word.toLowerCase().replace(/(ing|ed|es|s)$/u, '');
 
 /** Creates a deterministic normalized character/word feature vector. */
 export function vectorize(text, dimension = 128) {
   const vector = new Float32Array(dimension);
   const words = text.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/)
-    .filter(Boolean).map(word => synonyms[stem(word)] || stem(word));
+    .filter(Boolean)
+    .map(word => synonyms[stem(word)] || stem(word))
+    .filter(word => !stopWords.has(word));
   const add = (feature, weight) => {
     let hash = 2166136261;
     for (const char of feature) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
@@ -57,6 +61,11 @@ export class MockAIProvider {
 /** Twitch integration intentionally unavailable in the offline build. */
 export class TwitchAdapter {
   async connect() { throw new Error('not enabled in offline build'); }
+  onMessage(_callback) { throw new Error('not enabled in offline build'); }
+  onStreamOffline(_callback) { throw new Error('not enabled in offline build'); }
+  onStreamOnline(_callback) { throw new Error('not enabled in offline build'); }
+  async send(_text) { throw new Error('not enabled in offline build'); }
+  async close() { throw new Error('not enabled in offline build'); }
 }
 
 /** OpenAI integration intentionally unavailable in the offline build. */

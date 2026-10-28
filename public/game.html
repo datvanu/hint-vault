@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lumen Locks</title>
+    <link rel="stylesheet" href="/assets/game.css">
+  </head>
+  <body>
+    <main class="frame">
+      <header class="top-bar">
+        <div>
+          <div class="brand">Lumen Locks</div>
+          <div class="meta">Three rooms · one glowing way out</div>
+        </div>
+        <button class="mute-button" id="mute" aria-pressed="false">Sound: on</button>
+      </header>
+      <section class="scene" id="scene" aria-live="polite">
+        <div class="loading">Lighting the room…</div>
+      </section>
+      <footer class="footer">
+        <span>Mouse and keyboard controls</span>
+        <span id="seed-label"></span>
+      </footer>
+    </main>
+    <script type="module" src="/assets/game.js"></script>
+  </body>
+</html>

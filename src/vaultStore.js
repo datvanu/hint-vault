@@ -1,6 +1,7 @@
 import { Clusterer } from './clusterer.js';
 import { vectorize, heuristicRate } from './aiProvider.js';
 import { spoilerFilter } from './spoilerFilter.js';
+import { CostGuard } from './costGuard.js';
 
 const ROOM_CONTEXTS = {
   'Lever Hall': 'Pull four colored levers in order; the order is shown by colored dots on a faded poster.',
@@ -16,6 +17,7 @@ export class VaultStore {
     this.threshold = threshold;
     this.cap = cap;
     this.pricing = pricing;
+    this.costGuard = new CostGuard(cap, pricing);
     this.blocklist = blocklist;
     this.startPuzzle({ id: 'puzzle-1', name: 'Lever Hall', context: ROOM_CONTEXTS['Lever Hall'] });
     this.lastActivity = Date.now();
@@ -144,6 +146,7 @@ export class VaultStore {
   /** Full purge, including helpers. */
   reset() {
     this.helpers.clear();
+    this.costGuard.reset();
     this.startPuzzle({ id: `puzzle-${Date.now()}`, name: 'Lever Hall', context: ROOM_CONTEXTS['Lever Hall'] });
   }
 
@@ -156,11 +159,24 @@ export class VaultStore {
       attempt: this.attempt,
       helpedBoard: this.board(),
       costMeter: {
-        usdSpent: 0,
+        usdSpent: this.costGuard.usdSpent,
         usdCap: this.cap,
-        warning: false,
-        aiPaused: false,
+        warning: this.costGuard.warning,
+        aiPaused: this.costGuard.fallback,
       },
+    };
+  }
+
+  /** Admin-only snapshot includes group representatives for local debugging. */
+  adminState() {
+    return {
+      ...this.state(),
+      groups: this.groups.map(group => ({
+        id: group.id,
+        level: group.level,
+        rank: group.distinctUsers.size,
+        text: group.repText,
+      })),
     };
   }
 }

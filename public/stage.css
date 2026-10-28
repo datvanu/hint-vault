@@ -1,0 +1,10 @@
+* { box-sizing: border-box; }
+html, body { width: 1920px; height: 1080px; margin: 0; overflow: hidden; background: #07111d; color: #eef; font: 22px system-ui, sans-serif; }
+.stage { display: grid; width: 1920px; height: 1080px; grid-template-columns: 1280px 640px; background: radial-gradient(ellipse at 45% 40%, #18334c, #07111d 75%); }
+iframe { display: block; width: 1280px; height: 1080px; border: 0; }
+.side-panel { padding: 34px 30px; border-left: 1px solid #69ddff70; background: #091725c9; }
+.brand { color: #8beeff; font-size: 24px; letter-spacing: .14em; text-transform: uppercase; }
+.counts { margin: 22px 0; padding: 18px; border: 1px solid #73dbff66; border-radius: 16px; background: #102338; }
+.hint { margin: 12px 0; padding: 16px; border-left: 5px solid #8beeff; border-radius: 8px; background: #12243a; }
+.board { margin-top: 25px; color: #c5dced; }
+.caption { margin-top: 20px; color: #aac5d8; font-size: 14px; }

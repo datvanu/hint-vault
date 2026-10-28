@@ -10,6 +10,7 @@ import { Purger } from '../src/purger.js';
 import { filterReason, spoilerFilter } from '../src/spoilerFilter.js';
 import { runSimulator } from '../demo/simulator.js';
 import { checkSolution, createSeededSolutions } from '../src/game.js';
+import { createApp } from '../src/server.js';
 
 const quietHub = { broadcast() {} };
 
@@ -42,6 +43,25 @@ test('semantic cluster groups paraphrases and separates unrelated hints', () => 
   assert.ok(cosine(vectorize(hints[0].text), vectorize(hints[1].text)) >= 0.36);
 });
 
+test('five differently worded lever hints form one five-viewer group', () => {
+  const phrases = [
+    'pull the red lever',
+    'try the red switch',
+    'move the crimson handle down',
+    'the red lever is the one to pull',
+    'use the scarlet switch',
+  ];
+  const clusterer = new Clusterer(0.36);
+  const groups = [];
+  phrases.forEach((text, index) => clusterer.add(
+    groups,
+    { id: `hint-${index}`, userId: `viewer-${index}`, level: 1, text },
+    vectorize(text),
+  ));
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].distinctUsers.size, 5);
+});
+
 test('release ordering is gentle first and rank descending', () => {
   const store = new VaultStore();
   for (const [text, userId] of [
@@ -56,6 +76,22 @@ test('release ordering is gentle first and rank descending', () => {
   assert.ok(store.more().every(item => item.level <= 2));
 });
 
+test('level three requires a second !more within ten seconds', () => {
+  const store = new VaultStore();
+  store.addHint({ userId: 'solver', text: 'the answer is red blue red green' });
+  const router = new CommandRouter({ store, limiter: new RateLimiter(), hub: quietHub });
+  const host = { userId: 'host', badges: [{ set_id: 'broadcaster' }] };
+  router.handle({ ...host, text: '!stuck' });
+  router.handle({ ...host, text: '!more' });
+  router.handle({ ...host, text: '!more' });
+  assert.equal(store.puzzle.maxReleasedLevel, 2);
+  router.handle({ ...host, text: '!more' });
+  assert.equal(store.puzzle.maxReleasedLevel, 2);
+  router.handle({ ...host, text: '!more' });
+  assert.equal(store.puzzle.maxReleasedLevel, 3);
+  router.close();
+});
+
 test('CostGuard estimates spend and switches to fallback at cap', () => {
   const guard = new CostGuard(0.001, { m: { input: 1, output: 2 } });
   assert.equal(guard.allow(0.0005), true);
@@ -63,6 +99,15 @@ test('CostGuard estimates spend and switches to fallback at cap', () => {
   assert.equal(guard.usdSpent, 0.001);
   assert.equal(guard.fallback, true);
   assert.equal(guard.allow(0), false);
+});
+
+test('CostGuard engages heuristic mode at a one-cent stream cap', () => {
+  const guard = new CostGuard(0.01, { model: { input: 10, output: 10 } });
+  assert.equal(guard.allow(0.011), false);
+  assert.equal(guard.fallback, true);
+  const store = new VaultStore({ cap: 0.01 });
+  store.costGuard.allow(0.011);
+  assert.equal(store.state().costMeter.aiPaused, true);
 });
 
 test('forgetme removes hints, memberships and board entries', () => {
@@ -84,6 +129,48 @@ test('purge empties session data', () => {
   clearInterval(purger.timer);
   assert.equal(store.hints.length, 0);
   assert.equal(store.groups.length, 0);
+});
+
+test('inactivity purger expires old sessions and app close clears its timers', async () => {
+  const store = new VaultStore();
+  store.addHint({ userId: 'viewer', text: 'check the poster' });
+  const purger = new Purger(store, 1000);
+  assert.equal(purger.expireIfInactive(store.lastActivity + 1001), true);
+  assert.equal(store.hints.length, 0);
+  purger.close();
+
+  const app = createApp();
+  app.store.addHint({ userId: 'viewer', text: 'check the poster' });
+  await app.close();
+  assert.equal(app.store.hints.length, 0);
+  assert.equal(app.purger.stopped, true);
+});
+
+test('stream.offline event purges session hints and helpers', () => {
+  const store = new VaultStore();
+  store.addHint({ userId: 'viewer', text: 'check the poster' });
+  store.credit('viewer', 'Viewer');
+  const router = new CommandRouter({ store, limiter: new RateLimiter(), hub: quietHub });
+  router.streamOffline();
+  assert.equal(store.hints.length, 0);
+  assert.equal(store.board().length, 0);
+  store.addHint({ userId: 'again', text: 'check the poster' });
+  router.handle({ userId: 'host', badges: [{ set_id: 'broadcaster' }], text: '!vaultreset' });
+  assert.equal(store.hints.length, 0);
+  router.close();
+});
+
+test('outgoing limiter caps a 200-message burst at one per two seconds', () => {
+  const limiter = new RateLimiter();
+  const accepted = [];
+  for (let index = 0; index < 200; index++) {
+    const now = 2000 + index * 50;
+    if (limiter.allowOutgoing(now)) accepted.push(now);
+  }
+  assert.equal(accepted.length, 5);
+  for (let index = 1; index < accepted.length; index++) {
+    assert.ok(accepted[index] - accepted[index - 1] >= 2000);
+  }
 });
 
 test('filter rules reject toxic words, links, story spoilers and spam', () => {
@@ -127,6 +214,27 @@ test('demo timeline completes and filters content end to end', async () => {
   assert.equal(store.hints.some(hint => /idiot/i.test(hint.text)), false);
   assert.equal(store.hints.some(hint => hint.userId === 'pixel_pia'), false);
   assert.equal(store.puzzle.state, 'solved');
+  router.close();
+});
+
+test('demo hold stops at the open vault before the first !solved', async () => {
+  const store = new VaultStore();
+  const router = new CommandRouter({ store, limiter: new RateLimiter(), hub: quietHub });
+  const result = await runSimulator(router, { speed: 100, hold: true });
+  assert.equal(result.heldBeforeSolved, true);
+  assert.notEqual(store.puzzle.state, 'solved');
+  assert.equal(store.puzzle.maxReleasedLevel, 3);
+  router.close();
+});
+
+test('demo hold stops at the open vault before the first !solved', async () => {
+  const store = new VaultStore();
+  const router = new CommandRouter({ store, limiter: new RateLimiter(), hub: quietHub });
+  const result = await runSimulator(router, { speed: 100, hold: true });
+  assert.equal(result.heldBeforeSolved, true);
+  assert.notEqual(store.puzzle.state, 'solved');
+  assert.equal(store.puzzle.maxReleasedLevel, 3);
+  router.close();
 });
 
 test('seeded solutions are deterministic and room checkers accept only the solution', () => {

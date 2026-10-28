@@ -3,9 +3,8 @@ export class Purger {
   constructor(store, timeoutMs = 12 * 60 * 60 * 1000) {
     this.store = store;
     this.timeoutMs = timeoutMs;
-    this.timer = setInterval(() => {
-      if (Date.now() - this.store.lastActivity >= this.timeoutMs) this.purge();
-    }, Math.min(timeoutMs, 60_000));
+    this.stopped = false;
+    this.timer = setInterval(() => this.expireIfInactive(), Math.min(timeoutMs, 60_000));
     this.timer.unref?.();
   }
 
@@ -15,8 +14,19 @@ export class Purger {
     this.store.lastActivity = Date.now();
   }
 
-  close() {
-    clearInterval(this.timer);
+  expireIfInactive(now = Date.now()) {
+    if (now - this.store.lastActivity < this.timeoutMs) return false;
     this.purge();
+    return true;
+  }
+
+  close() {
+    this.stop();
+    this.purge();
+  }
+
+  stop() {
+    clearInterval(this.timer);
+    this.stopped = true;
   }
 }

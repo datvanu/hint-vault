@@ -29,5 +29,10 @@ export class CostGuard {
     if (this.usdSpent >= this.cap) this.fallback = true;
   }
 
+  reset() {
+    this.usdSpent = 0;
+    this.fallback = false;
+  }
+
   get warning() { return this.usdSpent >= this.cap * 0.8; }
 }
