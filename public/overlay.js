@@ -13,9 +13,11 @@ function render(state) {
   root.replaceChildren();
 
   const helpers = state.helpedBoard || [];
-  const widgetNames = helpers.slice(0, 3).map(helper => helper.displayName).join(', ');
+  const helperNames = helpers.slice(0, 3).map(helper => helper.displayName).join(', ');
+  const helperStatus = helperNames ? ' · ' + helperNames : '';
   const aiStatus = state.costMeter?.aiPaused ? ' · AI paused' : '';
-  root.append(element('div', 'widget', `🔒 ${state.counts.hints} hints · ${state.counts.groups} groups · ${widgetNames}${aiStatus}`));
+  const widgetText = '🔒 ' + state.counts.hints + ' hints · ' + state.counts.groups + ' groups' + helperStatus + aiStatus;
+  root.append(element('div', 'widget', widgetText));
 
   const vault = element('div', `vault mode-${state.mode}`);
   const title = state.mode === 'sealed' ? '🔒 Vault sealed' :
@@ -50,9 +52,17 @@ async function start() {
     return;
   }
 
-  const socket = new WebSocket(`ws://${location.host}/ws`);
-  socket.addEventListener('message', event => render(JSON.parse(event.data)));
+  let socketSnapshotReceived = false;
+  const socket = new WebSocket('ws://' + location.host + '/ws');
+  socket.addEventListener('message', event => {
+    socketSnapshotReceived = true;
+    render(JSON.parse(event.data));
+  });
   render({ mode: 'sealed', puzzle: { name: 'Hint Vault' }, counts: { hints: 0, groups: 0 }, released: [], helpedBoard: [] });
+  fetch('/state')
+    .then(response => response.json())
+    .then(state => { if (!socketSnapshotReceived) render(state); })
+    .catch(() => {});
 }
 
 start();

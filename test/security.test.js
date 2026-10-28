@@ -53,4 +53,16 @@ test('game emits the documented puzzle event without overwriting its event type'
   assert.match(source, /type: 'puzzle', id: room\.id, name: room\.name, context: room\.context/);
   assert.match(source, /type: 'attempt', id: room\.id, correct/);
   assert.match(source, /type: 'solved', id: settings\.rooms\[roomIndex\]\.id/);
+  assert.match(source, /function followVaultState\(state\)/);
+  assert.match(source, /if \(embeddedMode\) followVaultState/);
+  assert.match(source, /state\.mode === 'solved'/);
+});
+
+test('overlay has a state fallback and a wrapping corner widget', async () => {
+  const script = await readFile(new URL('../public/overlay.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/overlay.css', import.meta.url), 'utf8');
+  assert.match(script, /fetch\('\/state'\)/);
+  assert.match(script, /socketSnapshotReceived/);
+  assert.match(css, /max-width: min\(740px/);
+  assert.match(css, /white-space: normal/);
 });

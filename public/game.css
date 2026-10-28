@@ -52,7 +52,7 @@ body {
 .glow { animation: glow 2.8s ease-in-out infinite alternate; }
 .footer { display: flex; justify-content: space-between; color: #a7c4d8; font-size: 13px; }
 .loading { display: grid; height: 100%; place-items: center; color: var(--cyan); }
-.door-open { animation: door-open 1s ease-out forwards; }
+.scene.solved .art { animation: door-open 1s ease-out forwards; }
 
 @keyframes shake { 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
 @keyframes glow { to { filter: drop-shadow(0 0 24px #67eaff); } }

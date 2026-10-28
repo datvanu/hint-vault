@@ -3,7 +3,7 @@ export const config = {
   port: Number(process.env.PORT || 3000),
   provider: process.env.AI_PROVIDER || 'mock',
   maxUsd: Number(process.env.MAX_USD_PER_STREAM || 1),
-  clusterThreshold: 0.36,
+  clusterThreshold: 0.5,
   pricing: {
     source: 'MODELS-COSTS.md (offline placeholder)',
     date: '2026-10-28',

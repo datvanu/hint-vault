@@ -11,22 +11,25 @@ const ROOM_CONTEXTS = {
 
 /** In-memory stream and puzzle state. Hint content is never logged or persisted. */
 export class VaultStore {
-  constructor({ threshold = 0.36, cap = 1, pricing = { mock: { input: 0, output: 0 } }, blocklist = [] } = {}) {
+  constructor({ threshold = 0.5, cap = 1, pricing = { mock: { input: 0, output: 0 } }, blocklist = [] } = {}) {
     this.session = { id: 'session-1', broadcasterId: 'demo', startedAt: Date.now(), demo: true, costUsd: 0 };
     this.helpers = new Map();
+    this.puzzleSequence = 0;
     this.threshold = threshold;
     this.cap = cap;
     this.pricing = pricing;
     this.costGuard = new CostGuard(cap, pricing);
     this.blocklist = blocklist;
-    this.startPuzzle({ id: 'puzzle-1', name: 'Lever Hall', context: ROOM_CONTEXTS['Lever Hall'] });
+    this.startPuzzle({ id: 'room1-lever', name: 'Lever Hall', context: ROOM_CONTEXTS['Lever Hall'] });
     this.lastActivity = Date.now();
   }
 
   /** Switches puzzles while preserving stream-level helper credits. */
   startPuzzle({ id, name, context }) {
+    const puzzleId = id || `puzzle-${Date.now()}-${++this.puzzleSequence}`;
+    if (this.puzzle?.id === puzzleId) return false;
     this.puzzle = {
-      id: id || `puzzle-${Date.now()}`,
+      id: puzzleId,
       sessionId: this.session.id,
       name: name || 'Lever Hall',
       context: context || ROOM_CONTEXTS[name] || ROOM_CONTEXTS['Lever Hall'],
@@ -41,6 +44,7 @@ export class VaultStore {
     this.attempt = null;
     this.clusterer = new Clusterer(this.threshold);
     this.lastActivity = Date.now();
+    return true;
   }
 
   addHint({ userId, userLogin = userId, displayName = userLogin, text, messageId = null }, rating) {
@@ -56,7 +60,7 @@ export class VaultStore {
       messageId,
       level: rating?.level ?? heuristicRate(this.puzzle.context, text),
       flags: [],
-      embedding: vectorize(text),
+      embedding: vectorize(text, 128, this.puzzle.context),
     };
     this.hints.push(hint);
     const group = this.clusterer.add(this.groups, hint, hint.embedding);
@@ -147,7 +151,11 @@ export class VaultStore {
   reset() {
     this.helpers.clear();
     this.costGuard.reset();
-    this.startPuzzle({ id: `puzzle-${Date.now()}`, name: 'Lever Hall', context: ROOM_CONTEXTS['Lever Hall'] });
+    this.startPuzzle({
+      id: `puzzle-reset-${Date.now()}-${++this.puzzleSequence}`,
+      name: 'Lever Hall',
+      context: ROOM_CONTEXTS['Lever Hall'],
+    });
   }
 
   state() {

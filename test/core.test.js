@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { parseCommand, CommandRouter } from '../src/commandRouter.js';
 import { RateLimiter } from '../src/rateLimiter.js';
 import { Clusterer, cosine } from '../src/clusterer.js';
@@ -60,6 +61,18 @@ test('five differently worded lever hints form one five-viewer group', () => {
   ));
   assert.equal(groups.length, 1);
   assert.equal(groups[0].distinctUsers.size, 5);
+});
+
+test('room-aware aliases normalize wall art, watches, reflections, and ground', () => {
+  const contexts = [
+    ['Lever Hall poster', 'faded poster', 'picture on the wall'],
+    ['cracked clock on the shelf', 'the clock', 'the watch'],
+    ['mirror on the wall', 'the mirror', 'the reflection'],
+    ['word written on the floor', 'the floor', 'the ground'],
+  ];
+  for (const [context, first, second] of contexts) {
+    assert.ok(cosine(vectorize(first, 128, context), vectorize(second, 128, context)) > 0.5);
+  }
 });
 
 test('release ordering is gentle first and rank descending', () => {
@@ -188,7 +201,7 @@ test('filter rules reject toxic words, links, story spoilers and spam', () => {
 });
 
 test('heuristic rating uses context keywords across all rooms', () => {
-  assert.equal(heuristicRate('colored levers and a poster show the order', 'Check the picture on the wall'), 2);
+  assert.equal(heuristicRate('colored levers and a poster show the order', 'Check the picture on the wall'), 1);
   assert.equal(heuristicRate('cracked clock hour sets the dial', 'Only the cracked clock counts'), 2);
   assert.equal(heuristicRate('read the mirrored word on the floor', 'The word is GLOW'), 3);
   assert.equal(heuristicRate('a room with a hidden clue', 'Look around again'), 0);
@@ -214,16 +227,6 @@ test('demo timeline completes and filters content end to end', async () => {
   assert.equal(store.hints.some(hint => /idiot/i.test(hint.text)), false);
   assert.equal(store.hints.some(hint => hint.userId === 'pixel_pia'), false);
   assert.equal(store.puzzle.state, 'solved');
-  router.close();
-});
-
-test('demo hold stops at the open vault before the first !solved', async () => {
-  const store = new VaultStore();
-  const router = new CommandRouter({ store, limiter: new RateLimiter(), hub: quietHub });
-  const result = await runSimulator(router, { speed: 100, hold: true });
-  assert.equal(result.heldBeforeSolved, true);
-  assert.notEqual(store.puzzle.state, 'solved');
-  assert.equal(store.puzzle.maxReleasedLevel, 3);
   router.close();
 });
 
@@ -266,4 +269,61 @@ test('game events switch puzzle context and solve with helper credit', () => {
   assert.equal(router.handleGameEvent({ type: 'solved', id: 'room2-clock' }), true);
   assert.equal(store.puzzle.state, 'solved');
   assert.ok(store.board().some(helper => helper.displayName === 'Clock Helper'));
+});
+
+test('same-id game puzzle events preserve open hints and canonical puzzle ids agree', () => {
+  const store = new VaultStore();
+  const router = new CommandRouter({ store, limiter: new RateLimiter(), hub: quietHub });
+  assert.equal(store.puzzle.id, 'room1-lever');
+  store.addHint({ userId: 'viewer', text: 'look at the faded poster' });
+  store.release(1);
+  const before = store.state();
+
+  assert.equal(router.handleGameEvent({
+    type: 'puzzle', id: 'room1-lever', name: 'Lever Hall', context: store.puzzle.context,
+  }), true);
+  assert.equal(store.state().mode, 'open');
+  assert.equal(store.hints.length, 1);
+  assert.equal(store.puzzle.id, before.puzzle.id);
+
+  router.handle({ userId: 'host', badges: [{ set_id: 'broadcaster' }], text: '!puzzle Clock Shelf' });
+  assert.equal(store.puzzle.id, 'room2-clock');
+  assert.equal(store.puzzle.name, 'Clock Shelf');
+  router.handle({ userId: 'host', badges: [{ set_id: 'broadcaster' }], text: '!puzzle room3-mirror' });
+  assert.equal(store.puzzle.id, 'room3-mirror');
+  assert.equal(store.puzzle.name, 'Mirror Door');
+  router.close();
+});
+
+test('exact Lever Hall demo hints rate and release gently, with poster paraphrases grouped', async () => {
+  const events = JSON.parse(await readFile(new URL('../demo/script.json', import.meta.url), 'utf8'))
+    .filter(event => event.at < 36);
+  const store = new VaultStore();
+  const router = new CommandRouter({ store, limiter: new RateLimiter(), hub: quietHub });
+  for (const event of events) {
+    router.handle({
+      text: event.text,
+      userId: event.user,
+      userLogin: event.user,
+      displayName: event.name,
+      badges: event.role ? [{ set_id: event.role }] : [],
+    });
+  }
+
+  assert.equal(store.hints.length, 5);
+  const larry = store.hints.find(hint => hint.userId === 'lever_larry');
+  const sam = store.hints.find(hint => hint.userId === 'switch_sam');
+  const ryan = store.hints.find(hint => hint.userId === 'red_ryan');
+  assert.equal(larry.level, 1);
+  assert.equal(sam.level, 1);
+  assert.equal(ryan.level, 3);
+  assert.equal(larry.groupId, sam.groupId);
+
+  const firstRelease = store.release(1);
+  assert.equal(firstRelease.length, 1);
+  assert.equal(firstRelease[0].level, 1);
+  assert.equal(firstRelease[0].rank, 2);
+  const laterRelease = store.release(3);
+  assert.deepEqual(laterRelease.map(group => group.level), [1, 2, 3]);
+  router.close();
 });

@@ -42,7 +42,7 @@ body {
   background: #081522dd;
 }
 
-.widget { top: 24px; right: 30px; }
+.widget { top: 24px; right: 30px; max-width: min(740px, calc(100vw - 60px)); white-space: normal; line-height: 1.35; overflow-wrap: anywhere; }
 .cards { position: absolute; top: 20%; right: 2%; width: 32%; }
 .card { margin: 12px; padding: 18px; border-left: 8px solid #8ceaff; border-radius: 12px; background: #101d2def; }
 .card.level-3 { border-color: #ff8c91; }

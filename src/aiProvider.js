@@ -1,20 +1,14 @@
 import { spoilerFilter } from './spoilerFilter.js';
 
-const synonyms = {
-  switch: 'lever', picture: 'poster', image: 'poster', pull: 'pull', try: 'pull',
-  push: 'pull', use: 'pull', move: 'pull', turn: 'pull', down: 'pull',
-  handle: 'lever', crimson: 'red', scarlet: 'red',
-};
-const stopWords = new Set(['a', 'an', 'and', 'at', 'is', 'it', 'of', 'on', 'the', 'to', 'one']);
+const stopWords = new Set([
+  'a', 'an', 'and', 'at', 'check', 'faded', 'is', 'it', 'look', 'of', 'on', 'the', 'to', 'one',
+]);
 const stem = word => word.toLowerCase().replace(/(ing|ed|es|s)$/u, '');
 
 /** Creates a deterministic normalized character/word feature vector. */
-export function vectorize(text, dimension = 128) {
+export function vectorize(text, dimension = 128, context = '') {
   const vector = new Float32Array(dimension);
-  const words = text.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/)
-    .filter(Boolean)
-    .map(word => synonyms[stem(word)] || stem(word))
-    .filter(word => !stopWords.has(word));
+  const words = normalizeWords(text, context);
   const add = (feature, weight) => {
     let hash = 2166136261;
     for (const char of feature) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
@@ -32,22 +26,53 @@ export function vectorize(text, dimension = 128) {
 
 /** Rates hint specificity against the active room context. */
 export function heuristicRate(context, text) {
-  const lower = text.toLowerCase()
-    .replace(/\b(?:picture|image)\b/g, 'poster')
-    .replace(/\bswitch\b/g, 'lever');
-  const keywords = context.toLowerCase().match(/lever|clock|dial|mirror|door|poster|floor|color|colour|word/g) || [];
-  const object = keywords.find(word => lower.includes(word));
-  if (/\b(the answer is|the word is|answer:|\d+|red.{0,12}blue|blue.{0,12}red|green.{0,12}red)\b/i.test(lower)) return 3;
-  if (object && /\b(on|under|behind|order|color|colour|cracked|mirror|read|look at|use|pull|set)\b/i.test(lower)) return 2;
+  const lower = text.toLowerCase();
+  const words = normalizeWords(text, context);
+  const canonical = ` ${words.join(' ')} `;
+  const colors = lower.match(/\b(red|blue|green|yellow)\b/g) || [];
+  if (/\b(the answer is|the word is|answer:|\d+)\b/i.test(lower)) return 3;
+  const orderCue = /\b(lever|switch|order|first|then|next|before|after|sequence)\b/i.test(lower);
+  if (colors.length >= 2 && (orderCue || colors.length >= 3)) return 3;
+
+  const contextWords = new Set(normalizeWords(context, context));
+  const objects = ['lever', 'poster', 'clock', 'dial', 'mirror', 'floor', 'door', 'word'];
+  const object = objects.find(word => contextWords.has(word) && canonical.includes(` ${word} `));
+  if (object && /\b(order|colors?|cracked|mirror|reflection|read|under|behind|beneath|counts|sets|hour|sequence)\b/i.test(lower)) return 2;
   if (object) return 1;
   if (/look around|look again|explore|something/i.test(lower)) return 0;
   return 0;
 }
 
+/** Applies room-specific aliases before creating features or rating specificity. */
+function normalizeWords(text, context = '') {
+  const lowerContext = context.toLowerCase();
+  const aliases = {
+    try: 'pull', push: 'pull', use: 'pull', move: 'pull', turn: 'pull', down: 'pull',
+    crimson: 'red', scarlet: 'red',
+  };
+  if (/lever/.test(lowerContext)) Object.assign(aliases, { switch: 'lever', handle: 'lever' });
+  if (/poster/.test(lowerContext)) Object.assign(aliases, {
+    picture: 'poster', image: 'poster', artwork: 'poster', painting: 'poster', wall: 'poster', art: 'poster',
+  });
+  if (/clock/.test(lowerContext)) Object.assign(aliases, { watch: 'clock', timepiece: 'clock' });
+  if (/mirror/.test(lowerContext)) Object.assign(aliases, { reflection: 'mirror', lookingglass: 'mirror' });
+  if (/floor/.test(lowerContext)) Object.assign(aliases, { ground: 'floor' });
+
+  const lowerText = text.toLowerCase();
+  const normalized = lowerText.replace(/[^a-z0-9 ]/g, ' ').split(/\s+/)
+    .filter(Boolean)
+    .map(word => stem(word))
+    .map(word => aliases[word] || word)
+    .filter(word => !stopWords.has(word));
+  const colorCount = lowerText.match(/\b(red|blue|green|yellow)\b/g)?.length || 0;
+  if (/lever/.test(lowerContext) && colorCount >= 2) normalized.push('leversequence', 'colororder');
+  return normalized.filter((word, index) => index === 0 || word !== normalized[index - 1]);
+}
+
 /** Offline implementation used by demo mode. */
 export class MockAIProvider {
   async moderate(texts) { return texts.map(text => spoilerFilter(text)); }
-  async embed(texts) { return texts.map(text => vectorize(text)); }
+  async embed(texts, context = '') { return texts.map(text => vectorize(text, 128, context)); }
   async rate(context, hint) {
     return {
       level: heuristicRate(context, hint),

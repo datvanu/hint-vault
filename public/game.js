@@ -5,6 +5,7 @@ let dialValue = 3;
 let audioContext;
 let muted = false;
 let socket;
+let embeddedMode = false;
 
 const scene = document.querySelector('#scene');
 
@@ -15,6 +16,19 @@ function send(event) {
 function roomEvent() {
   const room = settings.rooms[roomIndex];
   send({ type: 'puzzle', id: room.id, name: room.name, context: room.context });
+}
+
+function followVaultState(state) {
+  const nextRoom = settings.rooms.findIndex(room => room.id === state.puzzle?.id);
+  if (nextRoom >= 0 && nextRoom !== roomIndex) {
+    roomIndex = nextRoom;
+    leverSequence = [];
+    dialValue = 3;
+    scene.classList.remove('solved');
+    drawRoom();
+  }
+  scene.classList.toggle('solved', state.mode === 'solved');
+  if (state.mode === 'solved') showNotice('Room solved. The next lock is ready.');
 }
 
 function enterRoom() {
@@ -163,7 +177,7 @@ function attempt(value) {
 
 function advance() {
   playSound('rumble');
-  scene.classList.add('door-open');
+  scene.classList.add('solved');
   send({ type: 'solved', id: settings.rooms[roomIndex].id });
   if (roomIndex === settings.rooms.length - 1) {
     showNotice('All three rooms are open. Well done!');
@@ -235,14 +249,20 @@ window.addEventListener('keydown', event => {
 });
 
 async function startGame() {
-  document.body.classList.toggle('embedded', new URLSearchParams(location.search).get('embedded') === '1');
+  embeddedMode = new URLSearchParams(location.search).get('embedded') === '1';
+  document.body.classList.toggle('embedded', embeddedMode);
   const response = await fetch(`/game-config${location.search}`);
   if (!response.ok) throw new Error('Could not load the puzzle configuration');
   settings = await response.json();
   document.querySelector('#seed-label').textContent = `Seed: ${settings.seed}`;
   enterRoom();
   socket = new WebSocket(`ws://${location.host}/ws`);
-  socket.addEventListener('open', roomEvent);
+  socket.addEventListener('open', () => {
+    if (!embeddedMode) roomEvent();
+  });
+  socket.addEventListener('message', event => {
+    if (embeddedMode) followVaultState(JSON.parse(event.data));
+  });
 }
 
 startGame().catch(error => {

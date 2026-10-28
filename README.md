@@ -39,7 +39,7 @@ The expected variables are `PORT`, `AI_PROVIDER`, `MAX_USD_PER_STREAM`, `TWITCH_
 
 ## Architecture and adapter seams
 
-`src/commandRouter.js` routes commands and local game events. `vaultStore.js`, `clusterer.js`, `rater.js`, `rateLimiter.js`, `costGuard.js`, and `spoilerFilter.js` implement the in-memory pipeline. `src/server.js` serves static pages from `public/`, the seeded game route, preview fixtures, and a small RFC 6455 WebSocket server. `demo/script.json` drives invented viewers through all three puzzle contexts. Graphics are original inline SVG/CSS; sound is synthesized with Web Audio.
+`src/commandRouter.js` routes commands and local game events. Puzzle ids are canonical across chat and game events; repeated same-id puzzle events preserve current hints. The embedded stage game follows server puzzle snapshots, so the simulator can advance rooms without manual play. `vaultStore.js`, `clusterer.js`, `rater.js`, `rateLimiter.js`, `costGuard.js`, and `spoilerFilter.js` implement the in-memory pipeline. `src/server.js` serves static pages from `public/`, the seeded game config route, preview fixtures, and a small RFC 6455 WebSocket server. `demo/script.json` drives invented viewers through all three puzzle contexts. Graphics are original inline SVG/CSS; sound is synthesized with Web Audio.
 
 The future Twitch EventSub chat source should implement:
 

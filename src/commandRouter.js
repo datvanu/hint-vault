@@ -1,3 +1,5 @@
+import { gameRooms } from './game.js';
+
 /** Parses supported commands from a complete trimmed chat message. */
 export function parseCommand(text) {
   const message = String(text || '').trim();
@@ -5,11 +7,10 @@ export function parseCommand(text) {
   return match ? { command: match[1].toLowerCase(), args: (match[2] || '').trim() } : null;
 }
 
-const PUZZLES = {
-  'lever hall': { id: 'room1-lever', context: 'Pull four colored levers in order; the order is shown by colored dots on a faded poster.' },
-  'clock shelf': { id: 'room2-clock', context: 'Set the dial to the hour shown by the cracked clock on the shelf.' },
-  'mirror door': { id: 'room3-mirror', context: 'Read the four-letter word written backwards on the floor using the mirror.' },
-};
+const PUZZLES_BY_ALIAS = new Map(gameRooms.flatMap(room => [
+  [room.name.toLowerCase(), room],
+  [room.id.toLowerCase(), room],
+]));
 
 /** Routes simulated or real chat messages to the vault state. */
 export class CommandRouter {
@@ -81,10 +82,10 @@ export class CommandRouter {
     } else if (command.command === 'solved') {
       this.store.solve(command.args || null);
     } else if (command.command === 'puzzle') {
-      const details = PUZZLES[command.args.toLowerCase()];
+      const details = PUZZLES_BY_ALIAS.get(command.args.toLowerCase());
       this.store.startPuzzle({
-        id: details?.id,
-        name: command.args || 'Lever Hall',
+        id: details?.id || (command.args ? undefined : gameRooms[0].id),
+        name: details?.name || command.args || gameRooms[0].name,
         context: details?.context,
       });
     } else if (command.command === 'vaultreset') {
@@ -99,8 +100,8 @@ export class CommandRouter {
   handleGameEvent(event) {
     if (!event || typeof event !== 'object') return false;
     if (event.type === 'puzzle' && event.id && event.name) {
-      this.store.startPuzzle({ id: event.id, name: event.name, context: event.context });
-      this.publish();
+      const changed = this.store.startPuzzle({ id: event.id, name: event.name, context: event.context });
+      if (changed) this.publish();
       return true;
     }
     if (event.type === 'attempt') {
