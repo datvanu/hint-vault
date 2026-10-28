@@ -1,0 +1,16 @@
+[
+ {"at":0,"user":"pixel_pia","name":"Pia","text":"!hint Look around the room again, something is colorful."},
+ {"at":180,"user":"lever_larry","name":"Larry","text":"!hint Look at the faded poster"},
+ {"at":350,"user":"switch_sam","name":"Sam","text":"!hint Check the picture on the wall"},
+ {"at":520,"user":"color_cora","name":"Cora","text":"!hint The poster colors show the lever order"},
+ {"at":700,"user":"red_ryan","name":"Ryan","text":"!hint Pull red lever first, then blue"},
+ {"at":900,"user":"solution_sue","name":"Sue","text":"!hint The answer is red, blue, red, green"},
+ {"at":1100,"user":"plot_pat","name":"Pat","text":"!hint The hero dies at the ending"},
+ {"at":1300,"user":"caps_carl","name":"Carl","text":"!hint YOU ARE AN IDIOT"},
+ {"at":1500,"user":"link_lee","name":"Lee","text":"!hint https://spam.example click now"},
+ {"at":1700,"user":"pixel_pia","name":"Pia","text":"!forgetme"},
+ {"at":1900,"user":"host","name":"Host","text":"!stuck","role":"broadcaster"},
+ {"at":2100,"user":"host","name":"Host","text":"!more","role":"broadcaster"},
+ {"at":2300,"user":"host","name":"Host","text":"!more","role":"broadcaster"},
+ {"at":2600,"user":"host","name":"Host","text":"!solved","role":"broadcaster"}
+]

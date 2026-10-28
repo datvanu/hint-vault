@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { parseCommand, CommandRouter } from '../src/commandRouter.js';
+import { RateLimiter } from '../src/rateLimiter.js';
+import { Clusterer, cosine } from '../src/clusterer.js';
+import { vectorize, moderate } from '../src/aiProvider.js';
+import { CostGuard } from '../src/costGuard.js';
+import { VaultStore } from '../src/vaultStore.js';
+import { Purger } from '../src/purger.js';
+import { runSimulator } from '../demo/simulator.js';
+
+test('command parser is case-insensitive and trims input',()=>{assert.deepEqual(parseCommand('  !HiNt pull lever '),{command:'hint',args:'pull lever'});assert.equal(parseCommand('hello'),null);});
+test('rate limiter enforces per-user, puzzle and outgoing limits',()=>{const l=new RateLimiter({userIntervalMs:1000,perPuzzle:2,perSession:3});assert.equal(l.allowHint('a','p',10000),true);assert.equal(l.allowHint('a','p',10500),false);assert.equal(l.allowHint('a','p',11000),true);assert.equal(l.allowHint('a','p',12000),false);assert.equal(l.allowOutgoing(10000),true);assert.equal(l.allowOutgoing(11999),false);});
+test('semantic cluster groups paraphrases and separates unrelated hints',()=>{const c=new Clusterer(.36),groups=[];const a={id:'1',userId:'a',level:1,text:'pull the red lever'},b={id:'2',userId:'b',level:2,text:'try the red switch'},d={id:'3',userId:'c',level:0,text:'the cracked clock shows seven'};c.add(groups,a,vectorize(a.text));c.add(groups,b,vectorize(b.text));c.add(groups,d,vectorize(d.text));assert.equal(groups.length,2);assert.equal(groups[0].distinctUsers.size,2);assert.ok(cosine(vectorize(a.text),vectorize(b.text))>=.36);});
+test('release ordering is gentle first and rank descending',()=>{const s=new VaultStore();for(const [id,text,user] of [['a','look around','u1'],['b','look around','u2'],['c','poster colors show the lever order','u3'],['d','the answer is red blue red green','u4']])s.addHint({userId:user,text},null);const zero=s.release(0);assert.ok(zero.length);assert.ok(zero.every(x=>x.level===0));const one=s.release(1);assert.ok(one.every((x,i)=>i===0||one[i-1].rank>=x.rank));assert.ok(s.more().every(x=>x.level<=2));});
+test('CostGuard estimates spend and switches to fallback at cap',()=>{const c=new CostGuard(.001,{m:{input:1,output:2}});assert.equal(c.allow(.0005),true);c.record({inputTokens:1000,outputTokens:0},'m');assert.equal(c.usdSpent,.001);assert.equal(c.fallback,true);assert.equal(c.allow(0),false);});
+test('forgetme removes hints, group memberships and board entries',()=>{const s=new VaultStore();s.addHint({userId:'u',displayName:'U',text:'look at the poster'});s.addHint({userId:'v',text:'look at the poster'});s.credit('u','U');s.forget('u');assert.equal(s.hints.some(h=>h.userId==='u'),false);assert.equal(s.board().length,0);assert.ok(s.groups.every(g=>!g.distinctUsers.has('u')));});
+test('purge empties session data',()=>{const s=new VaultStore();s.addHint({userId:'u',text:'look around'});const p=new Purger(s,999999);p.purge();p.close();assert.equal(s.hints.length,0);assert.equal(s.groups.length,0);});
+test('toxic, link and story spoiler filters reject text',()=>{for(const t of ['you are an idiot','visit https://spam.example','the hero dies at the ending'])assert.equal(moderate(t),true);assert.equal(moderate('look at the poster'),false);});
+test('filtered content never reaches overlay state',()=>{const s=new VaultStore(),l=new RateLimiter(),hub={broadcast(){}};const r=new CommandRouter({store:s,limiter:l,hub});for(const [i,text] of ['you are an idiot','https://spam.example','the hero dies at the ending'].entries())r.handle({userId:`u${i}`,text:`!hint ${text}`});assert.equal(s.state().counts.hints,0);assert.deepEqual(s.state().released,[]);});
+test('demo timeline completes and filters content end to end',async()=>{const s=new VaultStore(),router=new CommandRouter({store:s,limiter:new RateLimiter(),hub:{broadcast(){}}});await runSimulator(router,{speed:100});assert.equal(s.hints.some(h=>/dies at the ending/i.test(h.text)),false);assert.equal(s.hints.some(h=>/https?:/i.test(h.text)),false);assert.equal(s.hints.some(h=>/idiot/i.test(h.text)),false);assert.equal(s.hints.some(h=>h.userId==='pixel_pia'),false);assert.equal(s.puzzle.state,'solved');});
