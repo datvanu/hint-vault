@@ -96,6 +96,12 @@ export function createApp({ live = false, dryRunSend = false } = {}) {
       return;
     }
 
+    if (url.pathname === '/mode') {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify({ live }));
+      return;
+    }
+
     if (url.pathname === '/preview-state') {
       const mode = url.searchParams.get('mode');
       if (!Object.hasOwn(previewStates, mode)) {

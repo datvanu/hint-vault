@@ -45,7 +45,7 @@ export class CommandRouter {
 
     if (command.command === 'vault') {
       if (this.limiter.allowOutgoing()) {
-        this.onReply(`Vault: ${this.store.hints.length} hints from ${this.store.counts().viewers} viewers`);
+        this.onReply(`Vault: ${this.store.hints.length} hint${this.store.hints.length === 1 ? '' : 's'} from ${this.store.counts().viewers} viewer${this.store.counts().viewers === 1 ? '' : 's'}`);
       }
       return true;
     }
