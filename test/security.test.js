@@ -16,10 +16,14 @@ test('overlay, stage, and admin render dynamic viewer text as text nodes', async
 
 test('application source contains no file-writing path for hint content', async () => {
   const sourceFiles = await readdir(new URL('../src/', import.meta.url));
-  for (const file of sourceFiles.filter(name => name.endsWith('.js'))) {
+  for (const file of sourceFiles.filter(name => name.endsWith('.js') && name !== 'twitchAuth.js')) {
     const source = await readFile(new URL(`../src/${file}`, import.meta.url), 'utf8');
     assert.doesNotMatch(source, /\b(?:writeFile|appendFile|createWriteStream)\s*\(/);
   }
+  const authSource = await readFile(new URL('../src/twitchAuth.js', import.meta.url), 'utf8');
+  assert.match(authSource, /writeTokenAtomically\(token\)/);
+  assert.match(authSource, /open\(temporary, 'wx', 0o600\)/);
+  assert.doesNotMatch(authSource, /hint\.text|message\.text|displayName/u);
 });
 
 test('.env is ignored by git', async () => {
@@ -27,7 +31,7 @@ test('.env is ignored by git', async () => {
   assert.ok(ignore.split(/\r?\n/).includes('.env'));
 });
 
-test('Twitch and OpenAI adapters are offline-only stubs', async () => {
+test('offline TwitchAdapter and OpenAI provider stubs remain inert', async () => {
   const twitch = new TwitchAdapter();
   const openai = new OpenAIAdapter();
   await assert.rejects(twitch.connect(), /not enabled in offline build/);

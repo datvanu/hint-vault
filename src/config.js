@@ -12,4 +12,5 @@ export const config = {
   stuckRoles: ['broadcaster', 'moderator'],
   blocklist: ['slur-placeholder'],
   inactivityMs: 12 * 60 * 60 * 1000,
+  deleteHintMessages: process.env.HINTVAULT_DELETE_HINT_MESSAGES === '1',
 };

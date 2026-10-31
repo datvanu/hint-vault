@@ -12,6 +12,8 @@ import { Purger } from './purger.js';
 import { MockAIProvider, TwitchAdapter, OpenAIAdapter } from './aiProvider.js';
 import { gameConfig } from './game.js';
 import { runSimulator } from '../demo/simulator.js';
+import { TwitchAuth } from './twitchAuth.js';
+import { TwitchEventSub } from './twitchEventSub.js';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const publicDirectory = join(root, 'public');
@@ -29,10 +31,11 @@ const publicRoutes = new Map([
   ['/assets/stage.js', ['stage.js', 'text/javascript; charset=utf-8']],
   ['/assets/game.css', ['game.css', 'text/css; charset=utf-8']],
   ['/assets/game.js', ['game.js', 'text/javascript; charset=utf-8']],
+  ['/assets/game-copy.js', ['game-copy.js', 'text/javascript; charset=utf-8']],
 ]);
 
 /** Creates an offline app instance without binding a port. */
-export function createApp() {
+export function createApp({ live = false, dryRunSend = false } = {}) {
   const store = new VaultStore({
     threshold: config.clusterThreshold,
     cap: config.maxUsd,
@@ -41,11 +44,29 @@ export function createApp() {
   });
   const hub = new OverlayHub();
   const limiter = new RateLimiter();
-  const router = new CommandRouter({ store, limiter, hub, blocklist: config.blocklist });
+  let liveClient;
+  const router = new CommandRouter({
+    store, limiter, hub, blocklist: config.blocklist,
+    onReply: text => {
+      if (liveClient) liveClient.send(text).catch(error => console.error('Twitch chat send failed:', error.message));
+    },
+  });
   const provider = config.provider === 'openai' ? new OpenAIAdapter() : new MockAIProvider();
   // Adapters stay dormant in this offline build; they contain no network calls.
   void provider;
-  void new TwitchAdapter();
+  if (!live) void new TwitchAdapter();
+  if (live) {
+    const auth = new TwitchAuth();
+    liveClient = new TwitchEventSub({
+      auth,
+      dryRunSend: dryRunSend || process.env.HINTVAULT_ALLOW_SEND !== '1',
+      deleteHintMessages: config.deleteHintMessages,
+      onMessage: message => router.handle(message),
+      onStreamOffline: () => router.streamOffline(),
+      onStreamOnline: () => { if (store.puzzle.state === 'solved') store.reset(); },
+      onStatus: message => console.log(message),
+    });
+  }
   const purger = new Purger(store, config.inactivityMs);
   const demoController = new AbortController();
   const sockets = new Set();
@@ -162,6 +183,7 @@ export function createApp() {
     router.close();
     hub.close();
     purger.close();
+    liveClient?.stop();
     closePromise = new Promise(resolve => {
       if (!server.listening) {
         resolve();
@@ -175,15 +197,15 @@ export function createApp() {
     return closePromise;
   }
 
-  return { server, store, hub, router, limiter, purger, close, signal: demoController.signal };
+  return { server, store, hub, router, limiter, purger, close, signal: demoController.signal, liveClient };
 }
 
 /** Starts listening and prints the pages used by the demo. */
-export function startServer({ port = config.port, demo = false, speed = 1, hold = false } = {}) {
-  const app = createApp();
+export function startServer({ port = config.port, demo = false, speed = 1, hold = false, live = false, dryRunSend = false } = {}) {
+  const app = createApp({ live, dryRunSend });
   app.server.listen(port, '127.0.0.1', () => {
     const base = `http://localhost:${app.server.address().port}`;
-    console.log(`Hint Vault offline server: ${base}`);
+    console.log(`Hint Vault ${live ? 'live' : 'offline'} server: ${base}`);
     console.log(`Stage: ${base}/stage`);
     console.log(`Game: ${base}/game`);
     console.log(`Overlay: ${base}/overlay`);
@@ -191,6 +213,15 @@ export function startServer({ port = config.port, demo = false, speed = 1, hold 
     if (demo) {
       runSimulator(app.router, { speed, hold, signal: app.signal })
         .catch(error => console.error('Demo simulator stopped:', error.message));
+    }
+    if (live) {
+      app.liveClient.connect().then(({ subscription }) => {
+        console.log(`Twitch EventSub connected; chat subscription ${subscription?.status || 'active'}`);
+      }).catch(async error => {
+        console.error(`Twitch live mode could not start: ${app.liveClient.auth.redactError(error)}`);
+        await app.close();
+        process.exitCode = 1;
+      });
     }
   });
   const shutdown = () => app.close().then(() => process.exit(0));
@@ -257,5 +288,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const speedIndex = process.argv.indexOf('--speed');
   const speed = speedIndex >= 0 ? Number(process.argv[speedIndex + 1]) || 1 : 1;
   const hold = process.argv.includes('--hold');
-  startServer({ demo, speed, hold });
+  const live = process.argv.includes('--live');
+  const sim = process.argv.includes('--sim');
+  const dryRunSend = process.argv.includes('--dry-run-send');
+  startServer({ demo: demo || sim, speed, hold, live, dryRunSend });
 }

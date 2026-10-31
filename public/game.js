@@ -1,3 +1,5 @@
+import { controlDescriptions, roomDescriptions } from './game-copy.js';
+
 let settings;
 let roomIndex = 0;
 let leverSequence = [];
@@ -49,12 +51,12 @@ function drawRoom() {
         `<button data-lever="${color}">Pull ${color}</button>`).join('')}</div>`;
   } else if (room.type === 'clock') {
     art = clockArt();
-    controls = `<div class="steps">The cracked clock is the clue</div>
+    controls = `<div class="steps">${controlDescriptions.clock}</div>
       <div class="controls"><button id="minus">−</button><div id="dial-value" class="dial-value">${dialValue}</div>
       <button id="plus">+</button><button id="submit">Set dial</button></div>`;
   } else {
     art = mirrorArt();
-    controls = `<div class="steps">The floor writing is backwards</div>
+    controls = `<div class="steps">${controlDescriptions.mirror}</div>
       <div class="controls"><input id="word" maxlength="4" autocomplete="off" aria-label="Door word">
       <button id="submit">Unlock door</button></div>`;
   }
@@ -84,11 +86,7 @@ function bindControls(type) {
 }
 
 function roomDescription(index) {
-  return [
-    'A faded poster hangs above four colored levers. Pull them in the right order.',
-    'Three clocks sit on the shelf. One glass face is cracked. Set the nearby dial.',
-    'A word is etched backwards into the floor. The mirror may help you read it.',
-  ][index];
+  return roomDescriptions[index];
 }
 
 function leverArt() {

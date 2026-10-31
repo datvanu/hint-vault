@@ -70,14 +70,19 @@ The following `channel.chat.message` event fields are used:
 - `source_broadcaster_user_id`: ignore messages from other channels in Shared Chat, so only `null` or our own channel ID count
 
 ### 3.2 Auth model (recommended: "installed bot as broadcaster")
-- Kilian registers one app on dev.twitch.tv (client type **Public**, so no secret is needed for the Device Code Flow). That requires a verified email and **2FA**. He passes the Client ID, and any secret, to the team only through Grok Bot's secure input, never via chat. Source: https://dev.twitch.tv/docs/authentication/register-app/
-- The bot runs locally with a **user access token of the test channel itself** (broadcaster = sender = bot). Scopes:
+- **Account rule:** Kilian uses his **existing** Twitch account. Bots never log in to Kilian's accounts: no Twitch password or login goes through the secure input, and the box is never signed in to twitch.tv as Kilian.
+- Kilian registers one app on dev.twitch.tv **himself** (client type **Public**, so no client secret is needed). That requires a verified email and **2FA** on his account. He only checks it and enables it if missing. He provides the public Client ID through the configured environment, never in chat. Source: https://dev.twitch.tv/docs/authentication/register-app/
+- The bot runs locally with a **user access token of Kilian's own channel** (broadcaster = sender = bot). Kilian approves it himself in his own browser, and the team only ever receives the token, never his password. Scopes:
   - `user:read:chat` to receive chat via EventSub.
   - `user:write:chat` to answer via Send Chat Message.
   - `moderator:manage:chat_messages` (optional) to delete the visible `!hint` message so the spoiler disappears from chat. The broadcaster is allowed to moderate.
 - Why: no second bot account, no `channel:bot`/`user:bot` handshake, and the bot gets the higher broadcaster chat rate limit. Chatbot verification is "temporarily paused", but unverified bots work. Source: https://dev.twitch.tv/docs/chat/authenticating/
-- Token flow: OAuth **Device Code Flow** or Authorization Code with `http://localhost:3000/callback`. Tokens are stored only in a local `.env`/token file, which goes in `.gitignore` and is **never committed** (Devpost rule).
-- Dev shortcut: `twitch token --user-token --scopes "user:read:chat user:write:chat moderator:manage:chat_messages"` (Twitch CLI). Source: https://dev.twitch.tv/docs/chat/authenticating/
+- Token flow: OAuth **Device Code Flow** (the team sends Kilian the twitch.tv/activate link and code) or Authorization Code with `http://localhost:3000/callback` (Kilian opens the authorize link; the redirect lands on the box). Kilian confirms exactly `user:read:chat user:write:chat moderator:manage:chat_messages`. He can revoke the token at any time under Twitch Settings → Connections. Runtime reads a JSON token file named by `HINTVAULT_TWITCH_TOKEN_FILE`; refreshes replace it atomically with mode `0600`. Keep it outside the repository and never commit it. The public app ID comes from `TWITCH_CLIENT_ID`.
+- Dev shortcut: `twitch token --user-token --scopes "user:read:chat user:write:chat moderator:manage:chat_messages"` (Twitch CLI). It also ends in Kilian approving in his own browser. Source: https://dev.twitch.tv/docs/chat/authenticating/
+- **Own-message handling (because bot = Kilian's account):**
+  - The bot ignores its own outgoing status messages (track sent `message_id`s plus a `[Hint Vault]` prefix) to avoid loops.
+  - By default (`HINTVAULT_OWN_MESSAGES=demo-tag-only`), it processes its own messages only when they contain `[Hint Vault demo]`; the marker is stripped before command routing.
+  - Kilian's manually typed messages are own-account messages too, so they are ignored without the marker. `HINTVAULT_OWN_MESSAGES=all-except-status` can allow all own messages except `[Hint Vault]` status messages.
 
 ### 3.3 Sending chat
 - Endpoint: `POST https://api.twitch.tv/helix/chat/messages`. Body: `{broadcaster_id, sender_id, message}`.
@@ -91,6 +96,7 @@ The following `channel.chat.message` event fields are used:
   - Exceeding the limit means bot messages are ignored for 1 h.
   - Source: https://dev.twitch.tv/docs/chat/ (section "Rate Limits")
 - **Our cap: at most 1 message per 2 s, and replies are batched.** Never reply to every `!hint`. Acknowledgement happens in the overlay, and in chat only as a periodic summary ("🔒 Vault: 14 hints from 9 viewers").
+- **Sending is dry-run by default.** Set `HINTVAULT_ALLOW_SEND=1` to post status replies; `--dry-run-send` forces the dry-run behavior.
 
 ### 3.4 Deleting the `!hint` message (spoiler hygiene, optional)
 - Endpoint: `DELETE https://api.twitch.tv/helix/moderation/chat?broadcaster_id=&moderator_id=&message_id=` with scope `moderator:manage:chat_messages`.
@@ -266,7 +272,7 @@ Helper    { userId, displayName, helps: number }
   - It plays a scripted JSON timeline (`demo/script.json`) of fake viewers (`pixel_pia`, `lever_larry`, ...).
   - Hints of all 4 levels arrive, plus duplicates in different wordings, 1 story spoiler, 1 toxic message and 1 link spam. The last three show the filter.
   - Speed factor `--speed 1..10`.
-- **Hybrid mode** `--live --sim`: a real Twitch connection to the test channel plus simulated hints. The simulated hints are injected locally and not posted to Twitch, so the bot's real chat output stays visible.
+- **Hybrid mode** `--live --sim`: a real Twitch connection to Kilian's channel plus simulated hints. The simulated hints are injected locally and not posted to Twitch, so the bot's real chat output stays visible.
 - **Provider switch:**
   - `AI_PROVIDER=openai|mock`.
   - `mock` uses precomputed embeddings and levels from `demo/fixtures.json`, so the demo is deterministic, works offline and costs $0.
@@ -275,7 +281,10 @@ Helper    { userId, displayName, helps: number }
   - a live list of groups,
   - a cost meter,
   - a "purge now" button.
-- The demo must also run with **real Twitch chat** for the video proof: the team types `!hint`/`!stuck` in the twitch.tv web chat of the test channel on the box. Simulated viewers are labelled "simulated viewers (demo mode)" on screen.
+- The demo must also run with **real Twitch chat** for the video proof. Nobody types as Kilian in a browser. Two options:
+  - **A (optional):** Kilian types 1–2 messages himself during the recording.
+  - **B (default):** `--live --post-demo demo/live-posts.json` sends ≤ 10 clearly labelled messages via Send Chat Message with Kilian's token (`user:write:chat`), e.g. `!hint [Hint Vault demo] look at the poster`, spaced ≥ 2 s apart. The message list needs Kilian's approval before the run.
+  - The box shows the channel's public chat (popout, logged out). Simulated viewers are labelled "simulated viewers (demo mode)" on screen.
 
 ## 12. Architecture
 
@@ -312,7 +321,7 @@ interface CostGuard { allow(estUsd: number): boolean; record(usage: Usage, model
 ```
 
 ## 13. Acceptance criteria
-1. With the test channel live or offline, a `!hint …` typed in Twitch chat appears as +1 in the overlay counter in **≤ 3 s**, and its text is not shown while sealed.
+1. With Kilian's channel live or offline, a `!hint …` typed in Twitch chat appears as +1 in the overlay counter in **≤ 3 s**, and its text is not shown while sealed.
 2. 5 differently worded hints with the same meaning end up in **1 group with rank = number of distinct users**. In the demo fixture, at least 90 % of the scripted pairs are grouped correctly.
 3. `!stuck` shows only level-0 hints. Each `!more` reveals exactly one further level. Level 3 needs a double `!more`.
 4. The toxic message, the link spam and the story spoiler from the demo script are **never** shown in the overlay.
@@ -339,7 +348,7 @@ interface CostGuard { allow(estUsd: number): boolean; record(usage: Usage, model
   - The overlay state is checked as snapshots.
 - **Twitch integration:**
   - Twitch CLI `twitch event websocket start-server` (local EventSub WS mock) plus `twitch event trigger channel.chat.message --transport=websocket` and `stream.offline`. Source: https://dev.twitch.tv/docs/cli/websocket-event-command/ (beta, retrieved 2026-10-28).
-  - Then a real test on Kilian's test channel, run by the team from the box: 10 hints, `!stuck`, `!more`, `!solved`, `!forgetme`, and ending the stream.
+  - Then a real test on Kilian's channel, run by the team from the box with labelled bot demo posts (§11 option B, list approved by Kilian): 10 hints, `!stuck`, `!more`, `!solved`, `!forgetme`, and ending the stream.
 - **Load:** the simulator sends a burst of 5,000 hints in 2 h compressed to 5 min at speed 24. Check the queue cap, the cost meter and that the bot's chat output stays rate-limited.
 - **OBS:** the Browser Source at 1920×1080 must show a transparent background and correct animations. Record 30 s as a test.
 - **Privacy check:** after the session ends, grep the data dir and logs for the demo hint strings, and expect 0 hits.

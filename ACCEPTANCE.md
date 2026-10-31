@@ -13,13 +13,14 @@ This review covers the offline build only. Live Twitch and OpenAI behavior is no
 | 7. Outgoing chat is limited to one message per two seconds | PASS offline | `test/core.test.js` — `outgoing limiter caps a 200-message burst at one per two seconds` | Covers a compressed burst through the limiter. |
 | 8. A one-cent cap engages fallback and reports paused AI | PASS offline | `test/core.test.js` — `CostGuard engages heuristic mode at a one-cent stream cap`; `public/overlay.js` | Cost brake state reaches the overlay label; OpenAI calls are disabled. |
 | 9. Mock demo is deterministic and works offline | PASS offline | `test/core.test.js` — `demo timeline completes and filters content end to end`; `demo/script.json`; `src/aiProvider.js` | The demo uses only invented viewers and built-in modules. |
-| 10. EventSub reconnect preserves subscriptions and backs off | PENDING live Twitch | No EventSub client exists in this offline build. | Requires Twitch EventSub implementation and Twitch/mock-server integration. |
-| 11. No secrets in history; `.env` ignored | PARTIAL | `test/security.test.js` — `.env is ignored by git`; `test/security.test.js` — `Twitch and OpenAI adapters are offline-only stubs`; `.gitignore` | No credentials are included in the working files. Full repository history review is left to the operator. |
+| 10. EventSub reconnect preserves subscriptions and backs off | PASS offline | `test/twitch.test.js` — `keepalive watchdog closes a silent socket and reconnect swaps only after welcome`; `EventSub welcome creates chat and stream subscriptions with the token owner IDs` | Reconnect behavior is verified against a local fake transport. Twitch's real EventSub service has not been contacted. |
+| 11. No secrets in history; `.env` ignored | PARTIAL | `test/security.test.js` — `.env is ignored by git`; `test/twitch.test.js` — token refresh file mode; `.gitignore` | No credentials are included in the working files. Full repository history review is left to the operator. |
 | 12. README has setup, OBS, demo, privacy, and Codex-use notes | PASS offline | `README.md` | Contains local setup, Browser Source guidance, adapter seams, privacy note, and build-process note. |
 
 ## Security and privacy self-check
 
 - Overlay and stage hint text uses DOM text nodes; admin state uses `textContent`. No chat text is inserted as HTML.
-- The app has no filesystem write path for hints. It reads static assets and preview fixtures only.
+- Hint content has no filesystem write path. The only runtime write is the OAuth token refresh, atomically replacing the configured token file with mode `0600`.
 - `.env` is listed in `.gitignore`; `.env.example` contains empty placeholders.
-- Twitch and OpenAI adapter methods throw `not enabled in offline build`; they make no network calls.
+- Twitch network calls exist only in the explicitly selected `--live` path and use the token file in place; OpenAI methods remain stubs and make no network calls. The default server and demo stay offline.
+- Token values are not printed or included in error messages. The live-check prints only account identity, scopes, expiry, and subscription metadata.

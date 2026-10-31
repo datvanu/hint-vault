@@ -3,5 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node src/server.js", "demo": "node src/server.js --demo", "test": "node --test" }
+  "scripts": {
+    "start": "node src/server.js",
+    "demo": "node src/server.js --demo",
+    "test": "node --test",
+    "live-check": "node scripts/live-check.js"
+  }
 }

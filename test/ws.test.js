@@ -28,6 +28,8 @@ test('real local WebSocket accepts game events and serves the game', { timeout: 
     assert.match(gameHtml, /assets\/game.js/);
     const gameConfigResponse = await fetch(`http://127.0.0.1:${port}/game-config?seed=test`);
     assert.equal((await gameConfigResponse.json()).seed, 'test');
+    const gameCopyResponse = await fetch(`http://127.0.0.1:${port}/assets/game-copy.js`);
+    assert.match(await gameCopyResponse.text(), /Enter the door word/);
     const overlayCssResponse = await fetch(`http://127.0.0.1:${port}/assets/overlay.css`);
     assert.match(await overlayCssResponse.text(), /transparent/);
     const stageResponse = await fetch(`http://127.0.0.1:${port}/stage`);
