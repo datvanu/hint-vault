@@ -45,10 +45,17 @@ export function createApp({ live = false, dryRunSend = false } = {}) {
   const hub = new OverlayHub();
   const limiter = new RateLimiter();
   let liveClient;
+  let replyCount = 0;
   const router = new CommandRouter({
     store, limiter, hub, blocklist: config.blocklist,
     onReply: text => {
-      if (liveClient) liveClient.send(text).catch(error => console.error('Twitch chat send failed:', error.message));
+      if (!liveClient) return;
+      const cap = Number(process.env.HINTVAULT_MAX_SENDS || Infinity);
+      replyCount += 1;
+      if (replyCount > cap) { console.log(`reply suppressed by HINTVAULT_MAX_SENDS=${cap}: ${text}`); return; }
+      liveClient.send(text)
+        .then(result => console.log(`reply #${replyCount} ${result?.dryRun ? 'dry-run' : 'sent'}: ${text}`))
+        .catch(error => console.error('Twitch chat send failed:', error.message));
     },
   });
   const provider = config.provider === 'openai' ? new OpenAIAdapter() : new MockAIProvider();
@@ -61,7 +68,7 @@ export function createApp({ live = false, dryRunSend = false } = {}) {
       auth,
       dryRunSend: dryRunSend || process.env.HINTVAULT_ALLOW_SEND !== '1',
       deleteHintMessages: config.deleteHintMessages,
-      onMessage: message => router.handle(message),
+      onMessage: message => { console.log(`received ${message.messageId}: ${message.text}`); router.handle(message); },
       onStreamOffline: () => router.streamOffline(),
       onStreamOnline: () => { if (store.puzzle.state === 'solved') store.reset(); },
       onStatus: message => console.log(message),
