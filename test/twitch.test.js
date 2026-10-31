@@ -188,8 +188,8 @@ test('notifications dedupe message IDs, filter shared chat, and enforce both own
   await eventSub.handlePayload({}, JSON.stringify(notification('manual', 'own-42', '!hint manual')));
   await eventSub.handlePayload({}, JSON.stringify(notification('demo', 'own-42', '[Hint Vault demo] !hint demo')));
   await eventSub.handlePayload({}, JSON.stringify(notification('status', 'viewer-1', '[Hint Vault] status')));
-  assert.deepEqual(routed.map(message => message.messageId), ['one', 'demo']);
-  assert.equal(routed[1].text, '!hint demo');
+  assert.deepEqual(routed.map(message => message.messageId), ['one', 'manual', 'demo']);
+  assert.equal(routed[2].text, '!hint demo');
 
   eventSub.ownMessages = 'all-except-status';
   await eventSub.handlePayload({}, JSON.stringify(notification('manual-2', 'own-42', '!hint manual')));

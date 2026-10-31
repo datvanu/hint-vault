@@ -10,7 +10,7 @@ export class TwitchEventSub {
     onStreamOffline = () => {},
     onStreamOnline = () => {},
     onStatus = message => console.log(message),
-    ownMessages = process.env.HINTVAULT_OWN_MESSAGES || 'demo-tag-only',
+    ownMessages = process.env.HINTVAULT_OWN_MESSAGES || 'all-except-status',
     allowSend = process.env.HINTVAULT_ALLOW_SEND === '1',
     dryRunSend = !allowSend,
     deleteHintMessages = false,
