@@ -26,6 +26,13 @@ Overlay screenshot previews use fixture data: `/overlay?preview=sealed`, `/overl
 
 ## Twitch live mode
 
+### Live setup (OAuth Device Code Flow)
+
+1. Register an application in the Twitch developer console (client type *Public*, no secret needed) and note its Client ID.
+2. Run `TWITCH_CLIENT_ID=... scripts/twitch-device-login.sh ~/.secrets/twitch_token.json`. It requests the scopes `user:read:chat user:write:chat moderator:manage:chat_messages`, prints a verification URL and user code, and writes the token JSON with mode `0600` once you approve in the browser.
+3. Copy `.env.example` to `.env` (Git-ignored), fill in the values, and start with `node src/server.js --live`. Sending stays dry-run until you set `HINTVAULT_ALLOW_SEND=1`.
+
+
 The default `npm start` and `npm run demo` modes remain offline. Live mode uses Twitch EventSub and Helix through Node's built-in `fetch` and `WebSocket`:
 
 ```sh
@@ -36,7 +43,7 @@ node src/server.js --live
 
 The token JSON file contains `access_token`, `refresh_token`, `expires_in`, `scope`, and `token_type`. Keep it outside the repository; refreshes are written atomically with mode `0600`. Token values and the client ID are never logged. `npm run live-check` validates the token, connects EventSub, creates and lists subscriptions, deletes those it created, and never sends chat.
 
-Required live variables are `HINTVAULT_TWITCH_TOKEN_FILE` and `TWITCH_CLIENT_ID`. `HINTVAULT_ALLOW_SEND=1` enables status replies; sending is dry-run by default and logs `would send: [Hint Vault] ...`. `--dry-run-send` forces dry-run. `HINTVAULT_OWN_MESSAGES=demo-tag-only` (default) processes own-account messages only when tagged `[Hint Vault demo]`; `all-except-status` permits other own messages. `HINTVAULT_DELETE_HINT_MESSAGES=1` enables optional deletion of `!hint` messages. `TWITCH_ID_BASE`, `TWITCH_HELIX_BASE`, and `TWITCH_EVENTSUB_WS` support local fake endpoints. Runtime settings also include `PORT`, `AI_PROVIDER`, and `MAX_USD_PER_STREAM`. The future OpenAI provider uses `OPENAI_API_KEY`; it remains a stub.
+Required live variables are `HINTVAULT_TWITCH_TOKEN_FILE` and `TWITCH_CLIENT_ID`. `HINTVAULT_ALLOW_SEND=1` enables status replies; sending is dry-run by default and logs `would send: [Hint Vault] ...`. `--dry-run-send` forces dry-run. `HINTVAULT_OWN_MESSAGES=all-except-status` (default) processes the broadcaster's own messages except Hint Vault status replies; `demo-tag-only` processes own-account messages only when tagged `[Hint Vault demo]`. `HINTVAULT_MAX_SENDS` caps status replies per run. `HINTVAULT_DELETE_HINT_MESSAGES=1` enables optional deletion of `!hint` messages. `TWITCH_ID_BASE`, `TWITCH_HELIX_BASE`, and `TWITCH_EVENTSUB_WS` support local fake endpoints. Runtime settings also include `PORT`, `AI_PROVIDER`, and `MAX_USD_PER_STREAM`. The future OpenAI provider uses `OPENAI_API_KEY`; it remains a stub.
 
 ## Architecture and adapter seams
 
@@ -72,4 +79,10 @@ Overlay and stage text is rendered with text nodes; admin state uses `textConten
 
 The acceptance review is in [ACCEPTANCE.md](ACCEPTANCE.md): **10 PASS offline, 1 PARTIAL, 1 PENDING live Twitch**. Run `npm test` for offline and local-fake tests. Fakes cover token refresh, EventSub subscription payloads and reconnect, message filtering, and dry-run sending; real Twitch authorization and delivery still need operator verification.
 
-Codex was used in this single build thread to implement the app, game, adapter stubs, and offline tests. The operator runs live integrations and commits each build step.
+## How Codex was used
+
+The whole app was built in **one Codex CLI thread**, session `01a182eb-9111-7860-9f26-1f06ddc01557` (resume with `codex resume 01a182eb-9111-7860-9f26-1f06ddc01557`). Five build prompts were sent to that session: offline scaffold and mock pipeline, the Lumen Locks game and stage, lifecycle and spoiler/privacy hardening, the Twitch EventSub/Helix integration with local fakes, and a final review. Codex wrote the server, game, overlay, pipeline modules, Twitch adapter and the `node --test` suite; the operator reviewed each step, ran the live tests and committed the result (see `git log`). Later small fixes (plural labels, live captions) were made by hand.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
