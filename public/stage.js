@@ -4,8 +4,8 @@ const hints = document.querySelector('#hints');
 const board = document.querySelector('#board');
 const socket = new WebSocket(`ws://${location.host}/ws`);
 
-const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-fetch('/mode').then(r => r.json()).then(m => { if (m.live) document.querySelector('.caption').textContent = 'Live Twitch chat'; }).catch(() => {});
+import { plural, captionFor } from './labels.js';
+fetch('/mode').then(r => r.json()).then(m => { document.querySelector('.caption').textContent = captionFor(m); }).catch(() => {});
 
 function render(state) {
   puzzle.textContent = state.puzzle.name;

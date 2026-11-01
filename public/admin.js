@@ -1,3 +1,4 @@
+import { plural } from './labels.js';
 const stateOutput = document.querySelector('#state');
 const meter = document.querySelector('#meter');
 const socket = new WebSocket(`ws://${location.host}/ws`);
@@ -5,7 +6,7 @@ const socket = new WebSocket(`ws://${location.host}/ws`);
 async function refresh() {
   const response = await fetch('/admin-state');
   const state = await response.json();
-  meter.textContent = `${state.counts.hints} hints · ${state.counts.groups} groups · $${state.costMeter.usdSpent.toFixed(4)} / $${state.costMeter.usdCap.toFixed(2)}${state.costMeter.aiPaused ? ' · AI paused' : ''}`;
+  meter.textContent = `${plural(state.counts.hints, 'hint')} · ${plural(state.counts.groups, 'group')} · $${state.costMeter.usdSpent.toFixed(4)} / $${state.costMeter.usdCap.toFixed(2)}${state.costMeter.aiPaused ? ' · AI paused' : ''}`;
   stateOutput.textContent = JSON.stringify(state, null, 2);
 }
 

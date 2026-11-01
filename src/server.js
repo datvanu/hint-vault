@@ -31,11 +31,12 @@ const publicRoutes = new Map([
   ['/assets/stage.js', ['stage.js', 'text/javascript; charset=utf-8']],
   ['/assets/game.css', ['game.css', 'text/css; charset=utf-8']],
   ['/assets/game.js', ['game.js', 'text/javascript; charset=utf-8']],
+  ['/assets/labels.js', ['labels.js', 'text/javascript; charset=utf-8']],
   ['/assets/game-copy.js', ['game-copy.js', 'text/javascript; charset=utf-8']],
 ]);
 
 /** Creates an offline app instance without binding a port. */
-export function createApp({ live = false, dryRunSend = false } = {}) {
+export function createApp({ live = false, dryRunSend = false, sim = false } = {}) {
   const store = new VaultStore({
     threshold: config.clusterThreshold,
     cap: config.maxUsd,
@@ -98,7 +99,7 @@ export function createApp({ live = false, dryRunSend = false } = {}) {
 
     if (url.pathname === '/mode') {
       response.writeHead(200, { 'content-type': 'application/json' });
-      response.end(JSON.stringify({ live }));
+      response.end(JSON.stringify({ live, sim: Boolean(sim) }));
       return;
     }
 
@@ -214,8 +215,8 @@ export function createApp({ live = false, dryRunSend = false } = {}) {
 }
 
 /** Starts listening and prints the pages used by the demo. */
-export function startServer({ port = config.port, demo = false, speed = 1, hold = false, live = false, dryRunSend = false } = {}) {
-  const app = createApp({ live, dryRunSend });
+export function startServer({ port = config.port, demo = false, speed = 1, hold = false, live = false, dryRunSend = false, sim = false } = {}) {
+  const app = createApp({ live, dryRunSend, sim });
   app.server.listen(port, '127.0.0.1', () => {
     const base = `http://localhost:${app.server.address().port}`;
     console.log(`Hint Vault ${live ? 'live' : 'offline'} server: ${base}`);
@@ -304,5 +305,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const live = process.argv.includes('--live');
   const sim = process.argv.includes('--sim');
   const dryRunSend = process.argv.includes('--dry-run-send');
-  startServer({ demo: demo || sim, speed, hold, live, dryRunSend });
+  startServer({ demo: demo || sim, speed, hold, live, dryRunSend, sim });
 }

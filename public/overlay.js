@@ -1,3 +1,4 @@
+import { plural } from './labels.js';
 const root = document.querySelector('#overlay-root');
 const previewBanner = document.querySelector('#preview-banner');
 
@@ -16,7 +17,7 @@ function render(state) {
   const helperNames = helpers.slice(0, 3).map(helper => helper.displayName).join(', ');
   const helperStatus = helperNames ? ' · ' + helperNames : '';
   const aiStatus = state.costMeter?.aiPaused ? ' · AI paused' : '';
-  const widgetText = '🔒 ' + state.counts.hints + ' hints · ' + state.counts.groups + ' groups' + helperStatus + aiStatus;
+  const widgetText = '🔒 ' + plural(state.counts.hints, 'hint') + ' · ' + plural(state.counts.groups, 'group') + helperStatus + aiStatus;
   root.append(element('div', 'widget', widgetText));
 
   const vault = element('div', `vault mode-${state.mode}`);
